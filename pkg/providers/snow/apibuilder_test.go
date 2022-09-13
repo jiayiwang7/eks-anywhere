@@ -493,9 +493,7 @@ func TestSnowCluster(t *testing.T) {
 
 func TestSnowCredentialsSecret(t *testing.T) {
 	tt := newApiBuilerTest(t)
-	credentials := &snow.BootstrapCreds{}
-	credentials.Set("creds", "certs")
-	got := snow.SnowCredentialsSecret(tt.clusterSpec, credentials)
+	got := snow.SnowCredentialsSecret(tt.clusterSpec, "creds", "certs")
 	want := wantSnowCredentialsSecret()
 	tt.Expect(got).To(Equal(want))
 }
@@ -512,6 +510,24 @@ func wantSnowCredentialsSecret() *v1.Secret {
 			Labels: map[string]string{
 				"clusterctl.cluster.x-k8s.io/move": "true",
 			},
+		},
+		Data: map[string][]byte{
+			"credentials": []byte("creds"),
+			"ca-bundle":   []byte("certs"),
+		},
+		Type: "Opaque",
+	}
+}
+
+func wantEksaCredentialsSecret() *v1.Secret {
+	return &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test-snow-credentials",
+			Namespace: "test-namespace",
 		},
 		Data: map[string][]byte{
 			"credentials": []byte("creds"),

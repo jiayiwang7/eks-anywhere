@@ -22,6 +22,12 @@ func snowEntry() *ConfigManagerEntry {
 		},
 		Defaulters: []Defaulter{
 			func(c *Config) error {
+				if c.SnowDatacenter != nil {
+					c.SnowDatacenter.SetDefaults()
+				}
+				return nil
+			},
+			func(c *Config) error {
 				for _, m := range c.SnowMachineConfigs {
 					m.SetDefaults()
 				}
@@ -30,6 +36,12 @@ func snowEntry() *ConfigManagerEntry {
 			SetSnowMachineConfigsAnnotations,
 		},
 		Validations: []Validation{
+			func(c *Config) error {
+				if c.SnowDatacenter != nil {
+					return c.SnowDatacenter.Validate()
+				}
+				return nil
+			},
 			func(c *Config) error {
 				for _, m := range c.SnowMachineConfigs {
 					if err := m.Validate(); err != nil {

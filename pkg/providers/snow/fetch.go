@@ -52,9 +52,9 @@ func oldWorkerMachineTemplate(ctx context.Context, kubeClient kubernetes.Client,
 	return mt, nil
 }
 
-func oldCredentialsSecret(ctx context.Context, kubeClient kubernetes.Client, clusterSpec *cluster.Spec) (*v1.Secret, error) {
+func oldEksaCredentialsSecret(ctx context.Context, kubeClient kubernetes.Client, clusterSpec *cluster.Spec) (*v1.Secret, error) {
 	secret := &v1.Secret{}
-	err := kubeClient.Get(ctx, CredentialsSecretName(clusterSpec), constants.EksaSystemNamespace, secret)
+	err := kubeClient.Get(ctx, clusterSpec.SnowDatacenter.Spec.IdentityRef.Name, clusterSpec.SnowDatacenter.GetNamespace(), secret)
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}

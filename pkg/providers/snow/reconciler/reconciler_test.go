@@ -354,6 +354,12 @@ func snowDataCenter() *anywherev1.SnowDatacenterConfig {
 			Name:      "datacenter",
 			Namespace: clusterNamespace,
 		},
+		Spec: anywherev1.SnowDatacenterConfigSpec{
+			IdentityRef: &anywherev1.Ref{
+				Kind: "Secret",
+				Name: "datacenter-snow-credentials",
+			},
+		},
 	}
 }
 

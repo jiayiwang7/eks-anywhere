@@ -56,3 +56,109 @@ func TestGetSnowDatacenterConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestSnowDatacenterConfigSetDefaults(t *testing.T) {
+	tests := []struct {
+		name   string
+		before *SnowDatacenterConfig
+		after  *SnowDatacenterConfig
+	}{
+		{
+			name: "identity ref nil",
+			before: &SnowDatacenterConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: SnowDatacenterConfigSpec{},
+			},
+			after: &SnowDatacenterConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: &Ref{
+						Name: "test-snow-credentials",
+						Kind: "Secret",
+					},
+				},
+			},
+		},
+		{
+			name: "identity ref exists",
+			before: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: &Ref{
+						Name: "creds-1",
+						Kind: "Secret",
+					},
+				},
+			},
+			after: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: &Ref{
+						Name: "creds-1",
+						Kind: "Secret",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			tt.before.SetDefaults()
+			g.Expect(tt.before).To(Equal(tt.after))
+		})
+	}
+}
+
+func TestSnowDatacenterConfigValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		obj     *SnowDatacenterConfig
+		wantErr string
+	}{
+		{
+			name: "identity nil",
+			obj: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{},
+			},
+			wantErr: "",
+		},
+		{
+			name: "valid identity ref",
+			obj: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: &Ref{
+						Name: "creds-1",
+						Kind: "Secret",
+					},
+				},
+			},
+			wantErr: "",
+		},
+		{
+			name: "invalid identity ref kind",
+			obj: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: &Ref{
+						Name: "creds-1",
+						Kind: "UnknowKind",
+					},
+				},
+			},
+			wantErr: "SnowDatacenterConfig IdetityRef Kind UnknowKind is invalid",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			err := tt.obj.Validate()
+			if tt.wantErr == "" {
+				g.Expect(err).To(BeNil())
+			} else {
+				g.Expect(err).To(MatchError(ContainSubstring(tt.wantErr)))
+			}
+		})
+	}
+}

@@ -177,7 +177,12 @@ func givenDatacenterConfig() *v1alpha1.SnowDatacenterConfig {
 			Name:      "test",
 			Namespace: "test-namespace",
 		},
-		Spec: v1alpha1.SnowDatacenterConfigSpec{},
+		Spec: v1alpha1.SnowDatacenterConfigSpec{
+			IdentityRef: &v1alpha1.Ref{
+				Kind: "Secret",
+				Name: "test-snow-credentials",
+			},
+		},
 	}
 }
 
@@ -356,8 +361,8 @@ func TestGenerateCAPISpecForCreate(t *testing.T) {
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
@@ -392,8 +397,8 @@ func TestGenerateCAPISpecForUpgrade(t *testing.T) {
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))

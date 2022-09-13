@@ -25,8 +25,8 @@ func TestControlPlaneObjects(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
@@ -63,20 +63,20 @@ func TestControlPlaneObjects(t *testing.T) {
 
 	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
 	g.Expect(err).To(Succeed())
-	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt, wantSnowCredentialsSecret()}))
+	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt, wantEksaCredentialsSecret(), wantSnowCredentialsSecret()}))
 }
 
-func TestControlPlaneObjectsSecretExists(t *testing.T) {
+func TestControlPlaneObjectsCredentialsNil(t *testing.T) {
 	g := newSnowTest(t)
 	mt := wantSnowMachineTemplate()
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
-		Return(nil)
+		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
@@ -108,9 +108,105 @@ func TestControlPlaneObjectsSecretExists(t *testing.T) {
 	kcp := wantKubeadmControlPlane()
 	kcp.Spec.MachineTemplate.InfrastructureRef.Name = wantMachineTemplateName
 
-	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
+	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, nil, g.kubeconfigClient)
 	g.Expect(err).To(Succeed())
 	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt}))
+}
+
+func TestControlPlaneObjectsSecretExists(t *testing.T) {
+	g := newSnowTest(t)
+	mt := wantSnowMachineTemplate()
+	g.kubeconfigClient.EXPECT().
+		Get(
+			g.ctx,
+			"test-snow-credentials",
+			"test-namespace",
+			&v1.Secret{},
+		).
+		DoAndReturn(func(_ context.Context, _, _ string, obj *v1.Secret) error {
+			obj.Data = map[string][]byte{
+				"credentials": []byte("eksa-creds"),
+				"ca-bundle":   []byte("eksa-certs"),
+			}
+			return nil
+		})
+	g.kubeconfigClient.EXPECT().
+		Get(
+			g.ctx,
+			"snow-test",
+			constants.EksaSystemNamespace,
+			&controlplanev1.KubeadmControlPlane{},
+		).
+		DoAndReturn(func(_ context.Context, _, _ string, obj *controlplanev1.KubeadmControlPlane) error {
+			obj.Spec.MachineTemplate.InfrastructureRef.Name = "test-cp-1"
+			return nil
+		})
+	g.kubeconfigClient.EXPECT().
+		Get(
+			g.ctx,
+			"test-cp-1",
+			constants.EksaSystemNamespace,
+			&snowv1.AWSSnowMachineTemplate{},
+		).
+		DoAndReturn(func(_ context.Context, _, _ string, obj *snowv1.AWSSnowMachineTemplate) error {
+			mt.DeepCopyInto(obj)
+			obj.SetName("test-cp-1")
+			obj.Spec.Template.Spec.InstanceType = "updated-instance-type"
+			return nil
+		})
+
+	wantMachineTemplateName := "test-cp-2"
+	mt.SetName(wantMachineTemplateName)
+	mt.Spec.Template.Spec.InstanceType = "sbe-c.large"
+	kcp := wantKubeadmControlPlane()
+	kcp.Spec.MachineTemplate.InfrastructureRef.Name = wantMachineTemplateName
+	secret := wantSnowCredentialsSecret()
+	secret.Data["credentials"] = []byte("eksa-creds")
+	secret.Data["ca-bundle"] = []byte("eksa-certs")
+
+	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
+	g.Expect(err).To(Succeed())
+	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt, secret}))
+}
+
+func TestControlPlaneObjectsSecretMissCredentialsKey(t *testing.T) {
+	g := newSnowTest(t)
+	g.kubeconfigClient.EXPECT().
+		Get(
+			g.ctx,
+			"test-snow-credentials",
+			"test-namespace",
+			&v1.Secret{},
+		).
+		DoAndReturn(func(_ context.Context, _, _ string, obj *v1.Secret) error {
+			obj.Data = map[string][]byte{
+				"ca-bundle": []byte("eksa-certs"),
+			}
+			return nil
+		})
+
+	_, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
+	g.Expect(err).To(MatchError(ContainSubstring("unable to retrieve credentials from secret")))
+}
+
+func TestControlPlaneObjectsSecretMissCertificatesKey(t *testing.T) {
+	g := newSnowTest(t)
+	g.kubeconfigClient.EXPECT().
+		Get(
+			g.ctx,
+			"test-snow-credentials",
+			"test-namespace",
+			&v1.Secret{},
+		).
+		DoAndReturn(func(_ context.Context, _, _ string, obj *v1.Secret) error {
+			obj.Data = map[string][]byte{
+				"credentials": []byte("eksa-creds"),
+			}
+			return nil
+		})
+
+	_, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
+	g.Expect(err).To(MatchError(ContainSubstring("unable to retrieve ca-bundle from secret")))
 }
 
 func TestControlPlaneObjectsGetOldSecretError(t *testing.T) {
@@ -118,8 +214,8 @@ func TestControlPlaneObjectsGetOldSecretError(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(errors.New("get secret error"))
@@ -134,8 +230,8 @@ func TestControlPlaneObjectsUpgradeFromBetaMachineTemplateName(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
@@ -172,7 +268,7 @@ func TestControlPlaneObjectsUpgradeFromBetaMachineTemplateName(t *testing.T) {
 
 	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
 	g.Expect(err).To(Succeed())
-	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt, wantSnowCredentialsSecret()}))
+	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), kcp, mt, wantEksaCredentialsSecret(), wantSnowCredentialsSecret()}))
 }
 
 func TestControlPlaneObjectsOldControlPlaneNotExists(t *testing.T) {
@@ -181,8 +277,8 @@ func TestControlPlaneObjectsOldControlPlaneNotExists(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
@@ -200,7 +296,7 @@ func TestControlPlaneObjectsOldControlPlaneNotExists(t *testing.T) {
 
 	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
 	g.Expect(err).To(Succeed())
-	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), wantKubeadmControlPlane(), mt, wantSnowCredentialsSecret()}))
+	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), wantKubeadmControlPlane(), mt, wantEksaCredentialsSecret(), wantSnowCredentialsSecret()}))
 }
 
 func TestControlPlaneObjectsOldMachineTemplateNotExists(t *testing.T) {
@@ -209,8 +305,8 @@ func TestControlPlaneObjectsOldMachineTemplateNotExists(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
 		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
@@ -239,7 +335,7 @@ func TestControlPlaneObjectsOldMachineTemplateNotExists(t *testing.T) {
 
 	got, err := snow.ControlPlaneObjects(g.ctx, g.clusterSpec, g.credentials, g.kubeconfigClient)
 	g.Expect(err).To(Succeed())
-	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), wantKubeadmControlPlane(), mt, wantSnowCredentialsSecret()}))
+	g.Expect(got).To(Equal([]kubernetes.Object{wantCAPICluster(), wantSnowCluster(), wantKubeadmControlPlane(), mt, wantEksaCredentialsSecret(), wantSnowCredentialsSecret()}))
 }
 
 func TestControlPlaneObjectsGetOldControlPlaneError(t *testing.T) {
@@ -247,11 +343,17 @@ func TestControlPlaneObjectsGetOldControlPlaneError(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
-		Return(nil)
+		DoAndReturn(func(_ context.Context, _, _ string, obj *v1.Secret) error {
+			obj.Data = map[string][]byte{
+				"credentials": []byte("eksa-creds"),
+				"ca-bundle":   []byte("eksa-certs"),
+			}
+			return nil
+		})
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
@@ -270,11 +372,17 @@ func TestControlPlaneObjectsGetOldMachineTemplateError(t *testing.T) {
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,
-			"snow-test-snow-credentials",
-			constants.EksaSystemNamespace,
+			"test-snow-credentials",
+			"test-namespace",
 			&v1.Secret{},
 		).
-		Return(nil)
+		DoAndReturn(func(_ context.Context, _, _ string, obj *v1.Secret) error {
+			obj.Data = map[string][]byte{
+				"credentials": []byte("eksa-creds"),
+				"ca-bundle":   []byte("eksa-certs"),
+			}
+			return nil
+		})
 	g.kubeconfigClient.EXPECT().
 		Get(
 			g.ctx,

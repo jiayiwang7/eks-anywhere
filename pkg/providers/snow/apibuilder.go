@@ -146,25 +146,35 @@ func SnowCluster(clusterSpec *cluster.Spec) *snowv1.AWSSnowCluster {
 	return cluster
 }
 
-func SnowCredentialsSecret(clusterSpec *cluster.Spec, credentials *BootstrapCreds) *v1.Secret {
+func CredentialsSecret(name, namespace, credsB64, certsB64 string) *v1.Secret {
 	return &v1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: v1.SchemeGroupVersion.String(),
 			Kind:       string(snowv1.SecretKind),
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      CredentialsSecretName(clusterSpec),
-			Namespace: constants.EksaSystemNamespace,
-			Labels: map[string]string{
-				clusterctlv1.ClusterctlMoveLabelName: "true",
-			},
+			Name:      name,
+			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"credentials": []byte(credentials.credsB64),
-			"ca-bundle":   []byte(credentials.certsB64),
+			"credentials": []byte(credsB64),
+			"ca-bundle":   []byte(certsB64),
 		},
 		Type: v1.SecretTypeOpaque,
 	}
+}
+
+func SnowCredentialsSecret(clusterSpec *cluster.Spec, credsB64, certsB64 string) *v1.Secret {
+	s := CredentialsSecret(CredentialsSecretName(clusterSpec), constants.EksaSystemNamespace, credsB64, certsB64)
+	label := map[string]string{
+		clusterctlv1.ClusterctlMoveLabelName: "true",
+	}
+	s.SetLabels(label)
+	return s
+}
+
+func EksaCredentialsSecret(clusterSpec *cluster.Spec, credsB64, certsB64 string) *v1.Secret {
+	return CredentialsSecret(clusterSpec.SnowDatacenter.Spec.IdentityRef.Name, clusterSpec.SnowDatacenter.GetNamespace(), credsB64, certsB64)
 }
 
 func SnowMachineTemplate(name string, machineConfig *v1alpha1.SnowMachineConfig) *snowv1.AWSSnowMachineTemplate {

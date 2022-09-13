@@ -2,8 +2,8 @@ package snow
 
 import (
 	"context"
+	"fmt"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
@@ -18,7 +18,7 @@ import (
 func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
 	snowCluster := SnowCluster(clusterSpec)
 
-	snowCredentialsSecret, err := credentialsSecret(ctx, clusterSpec, credentials, kubeClient)
+	snowCredentialsSecrets, err := credentialsSecrets(ctx, clusterSpec, credentials, kubeClient)
 	if err != nil {
 		return nil, err
 	}
@@ -39,10 +39,7 @@ func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, credent
 	capiCluster := CAPICluster(clusterSpec, snowCluster, kubeadmControlPlane)
 
 	objs := []kubernetes.Object{capiCluster, snowCluster, kubeadmControlPlane, new}
-
-	if snowCredentialsSecret != nil {
-		objs = append(objs, snowCredentialsSecret)
-	}
+	objs = append(objs, snowCredentialsSecrets...)
 
 	return objs, nil
 }
@@ -170,25 +167,42 @@ func recreateKubeadmConfigTemplateNeeded(new, old *bootstrapv1.KubeadmConfigTemp
 	return !equality.Semantic.DeepDerivative(new.Spec, old.Spec)
 }
 
-func credentialsSecret(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) (*v1.Secret, error) {
-	old, err := oldCredentialsSecret(ctx, kubeClient, clusterSpec)
+// credentialsSecret generates the credentials secret(s) used for provisioning a snow cluster.
+// - eks-a credentials secret: user managed secret referred from snowdatacenterconfig identityRef
+// - snow credentials secret: eks-a creates, updates and deletes in eksa-system namespace. this secret is fully managed by eks-a. User shall treat it as a "read-only" object
+func credentialsSecrets(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
+	// fetch the eks-a credentials secret in user specified namespace.
+	eksaCreds, err := oldEksaCredentialsSecret(ctx, kubeClient, clusterSpec)
 	if err != nil {
 		return nil, err
 	}
 
-	// upgrade case: if the credentials secret already exists, skip creation.
-	// notice for cli upgrade, we handle the secret update in a separate step - under provider.UpdateSecrets
-	// which runs before the actual cluster upgrade. So we no longer need to update the secret here again since it should
-	// already reflect the latest credentials specified in the ENVs
-	if old != nil {
-		return nil, nil
+	// TODO: controller create workload cluster, should we throw an error? or print a warning?
+	if eksaCreds == nil && credentials == nil {
+		return []kubernetes.Object{}, nil
 	}
 
-	// cli create case: we create the secret from credentials parsed from envs
-	if credentials != nil {
-		return SnowCredentialsSecret(clusterSpec, credentials), nil
+	// cli create case
+	// we create the eks-a and snow secrets from credentials parsed from envs
+	if eksaCreds == nil {
+		return []kubernetes.Object{
+			EksaCredentialsSecret(clusterSpec, credentials.credsB64, credentials.certsB64),
+			SnowCredentialsSecret(clusterSpec, credentials.credsB64, credentials.certsB64),
+		}, nil
 	}
 
-	// controller create case: `{cluster-name}-snow-credentials` secret needs to exist or be manually created first
-	return nil, nil
+	// we reconcile the snow credentials secret to be in sync with the eks-a credentials secret user manages.
+	// notice for cli upgrade, we handle the eks-a credentials secret update in a separate step - under provider.UpdateSecrets
+	// which runs before the actual cluster upgrade.
+	// for controller secret, the user is responsible for making sure the eks-a credentials secret is created and up to date.
+	credsB64, ok := eksaCreds.Data["credentials"]
+	if !ok {
+		return nil, fmt.Errorf("unable to retrieve credentials from secret [%s]", eksaCreds.GetName())
+	}
+	certsB64, ok := eksaCreds.Data["ca-bundle"]
+	if !ok {
+		return nil, fmt.Errorf("unable to retrieve ca-bundle from secret [%s]", eksaCreds.GetName())
+	}
+
+	return []kubernetes.Object{SnowCredentialsSecret(clusterSpec, string(credsB64), string(certsB64))}, nil
 }
