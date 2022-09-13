@@ -3,9 +3,11 @@ package snow
 import (
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
+	clusterctlv1 "sigs.k8s.io/cluster-api/cmd/clusterctl/api/v1alpha3"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
 
 	"github.com/aws/eks-anywhere/pkg/api/v1alpha1"
@@ -135,9 +137,34 @@ func SnowCluster(clusterSpec *cluster.Spec) *snowv1.AWSSnowCluster {
 				Host: clusterSpec.Cluster.Spec.ControlPlaneConfiguration.Endpoint.Host,
 				Port: 6443,
 			},
+			IdentityRef: &snowv1.AWSSnowIdentityReference{
+				Name: CredentialsSecretName(clusterSpec),
+				Kind: snowv1.SecretKind,
+			},
 		},
 	}
 	return cluster
+}
+
+func SnowCredentialsSecret(clusterSpec *cluster.Spec, credentials *BootstrapCreds) *v1.Secret {
+	return &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: v1.SchemeGroupVersion.String(),
+			Kind:       string(snowv1.SecretKind),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      CredentialsSecretName(clusterSpec),
+			Namespace: constants.EksaSystemNamespace,
+			Labels: map[string]string{
+				clusterctlv1.ClusterctlMoveLabelName: "true",
+			},
+		},
+		Data: map[string][]byte{
+			"credentials": []byte(credentials.credsB64),
+			"ca-bundle":   []byte(credentials.certsB64),
+		},
+		Type: v1.SecretTypeOpaque,
+	}
 }
 
 func SnowMachineTemplate(name string, machineConfig *v1alpha1.SnowMachineConfig) *snowv1.AWSSnowMachineTemplate {

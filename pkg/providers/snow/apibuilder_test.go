@@ -477,6 +477,10 @@ func wantSnowCluster() *snowv1.AWSSnowCluster {
 				Host: "1.2.3.4",
 				Port: 6443,
 			},
+			IdentityRef: &snowv1.AWSSnowIdentityReference{
+				Name: "snow-test-snow-credentials",
+				Kind: "Secret",
+			},
 		},
 	}
 }
@@ -485,6 +489,36 @@ func TestSnowCluster(t *testing.T) {
 	tt := newApiBuilerTest(t)
 	got := snow.SnowCluster(tt.clusterSpec)
 	tt.Expect(got).To(Equal(wantSnowCluster()))
+}
+
+func TestSnowCredentialsSecret(t *testing.T) {
+	tt := newApiBuilerTest(t)
+	credentials := &snow.BootstrapCreds{}
+	credentials.Set("creds", "certs")
+	got := snow.SnowCredentialsSecret(tt.clusterSpec, credentials)
+	want := wantSnowCredentialsSecret()
+	tt.Expect(got).To(Equal(want))
+}
+
+func wantSnowCredentialsSecret() *v1.Secret {
+	return &v1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "snow-test-snow-credentials",
+			Namespace: "eksa-system",
+			Labels: map[string]string{
+				"clusterctl.cluster.x-k8s.io/move": "true",
+			},
+		},
+		Data: map[string][]byte{
+			"credentials": []byte("creds"),
+			"ca-bundle":   []byte("certs"),
+		},
+		Type: "Opaque",
+	}
 }
 
 func wantSnowMachineTemplate() *snowv1.AWSSnowMachineTemplate {

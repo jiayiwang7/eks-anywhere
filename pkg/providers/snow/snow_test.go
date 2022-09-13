@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/gomega"
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -43,6 +44,7 @@ type snowTest struct {
 	provider         *snow.SnowProvider
 	cluster          *types.Cluster
 	clusterSpec      *cluster.Spec
+	credentials      *snow.BootstrapCreds
 }
 
 func newSnowTest(t *testing.T) snowTest {
@@ -54,6 +56,8 @@ func newSnowTest(t *testing.T) snowTest {
 	cluster := &types.Cluster{
 		Name: "cluster",
 	}
+	credentials := &snow.BootstrapCreds{}
+	credentials.Set("creds", "certs")
 	provider := newProvider(ctx, t, mockKubeUnAuthClient, mockaws, ctrl)
 	return snowTest{
 		WithT:            NewWithT(t),
@@ -64,6 +68,7 @@ func newSnowTest(t *testing.T) snowTest {
 		provider:         provider,
 		cluster:          cluster,
 		clusterSpec:      givenClusterSpec(),
+		credentials:      credentials,
 	}
 }
 
@@ -351,6 +356,14 @@ func TestGenerateCAPISpecForCreate(t *testing.T) {
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,
+			"snow-test-snow-credentials",
+			constants.EksaSystemNamespace,
+			&v1.Secret{},
+		).
+		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
+	tt.kubeconfigClient.EXPECT().
+		Get(
+			tt.ctx,
 			"snow-test",
 			constants.EksaSystemNamespace,
 			&controlplanev1.KubeadmControlPlane{},
@@ -376,6 +389,14 @@ func TestGenerateCAPISpecForUpgrade(t *testing.T) {
 	tt := newSnowTest(t)
 	mt := wantSnowMachineTemplate()
 	tt.kubeUnAuthClient.EXPECT().KubeconfigClient(tt.cluster.KubeconfigFile).Return(tt.kubeconfigClient)
+	tt.kubeconfigClient.EXPECT().
+		Get(
+			tt.ctx,
+			"snow-test-snow-credentials",
+			constants.EksaSystemNamespace,
+			&v1.Secret{},
+		).
+		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,

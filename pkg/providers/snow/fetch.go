@@ -3,6 +3,7 @@ package snow
 import (
 	"context"
 
+	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	controlplanev1 "sigs.k8s.io/cluster-api/controlplane/kubeadm/api/v1beta1"
@@ -35,13 +36,13 @@ func oldControlPlaneMachineTemplate(ctx context.Context, kubeClient kubernetes.C
 	return mt, nil
 }
 
-func oldWorkerMachineTemplate(ctx context.Context, kubeclient kubernetes.Client, clusterSpec *cluster.Spec, md *clusterv1.MachineDeployment) (*snowv1.AWSSnowMachineTemplate, error) {
+func oldWorkerMachineTemplate(ctx context.Context, kubeClient kubernetes.Client, md *clusterv1.MachineDeployment) (*snowv1.AWSSnowMachineTemplate, error) {
 	if md == nil {
 		return nil, nil
 	}
 
 	mt := &snowv1.AWSSnowMachineTemplate{}
-	err := kubeclient.Get(ctx, md.Spec.Template.Spec.InfrastructureRef.Name, constants.EksaSystemNamespace, mt)
+	err := kubeClient.Get(ctx, md.Spec.Template.Spec.InfrastructureRef.Name, constants.EksaSystemNamespace, mt)
 	if apierrors.IsNotFound(err) {
 		return nil, nil
 	}
@@ -49,4 +50,16 @@ func oldWorkerMachineTemplate(ctx context.Context, kubeclient kubernetes.Client,
 		return nil, err
 	}
 	return mt, nil
+}
+
+func oldCredentialsSecret(ctx context.Context, kubeClient kubernetes.Client, clusterSpec *cluster.Spec) (*v1.Secret, error) {
+	secret := &v1.Secret{}
+	err := kubeClient.Get(ctx, CredentialsSecretName(clusterSpec), constants.EksaSystemNamespace, secret)
+	if apierrors.IsNotFound(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return secret, nil
 }

@@ -3,6 +3,7 @@ package snow
 import (
 	"context"
 
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	clusterv1 "sigs.k8s.io/cluster-api/api/v1beta1"
 	bootstrapv1 "sigs.k8s.io/cluster-api/bootstrap/kubeadm/api/v1beta1"
@@ -14,8 +15,14 @@ import (
 	snowv1 "github.com/aws/eks-anywhere/pkg/providers/snow/api/v1beta1"
 )
 
-func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
+func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
 	snowCluster := SnowCluster(clusterSpec)
+
+	snowCredentialsSecret, err := credentialsSecret(ctx, clusterSpec, credentials, kubeClient)
+	if err != nil {
+		return nil, err
+	}
+
 	new := SnowMachineTemplate(clusterapi.ControlPlaneMachineTemplateName(clusterSpec), clusterSpec.SnowMachineConfigs[clusterSpec.Cluster.Spec.ControlPlaneConfiguration.MachineGroupRef.Name])
 
 	old, err := oldControlPlaneMachineTemplate(ctx, kubeClient, clusterSpec)
@@ -31,7 +38,13 @@ func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, kubeCli
 	}
 	capiCluster := CAPICluster(clusterSpec, snowCluster, kubeadmControlPlane)
 
-	return []kubernetes.Object{capiCluster, snowCluster, kubeadmControlPlane, new}, nil
+	objs := []kubernetes.Object{capiCluster, snowCluster, kubeadmControlPlane, new}
+
+	if snowCredentialsSecret != nil {
+		objs = append(objs, snowCredentialsSecret)
+	}
+
+	return objs, nil
 }
 
 func WorkersObjects(ctx context.Context, clusterSpec *cluster.Spec, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
@@ -82,7 +95,7 @@ func WorkersMachineAndConfigTemplate(ctx context.Context, kubeClient kubernetes.
 		}
 
 		// fetch the existing machineTemplate from cluster
-		oldMachineTemplate, err := oldWorkerMachineTemplate(ctx, kubeClient, clusterSpec, md)
+		oldMachineTemplate, err := oldWorkerMachineTemplate(ctx, kubeClient, md)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -155,4 +168,27 @@ func recreateKubeadmConfigTemplateNeeded(new, old *bootstrapv1.KubeadmConfigTemp
 		return true
 	}
 	return !equality.Semantic.DeepDerivative(new.Spec, old.Spec)
+}
+
+func credentialsSecret(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) (*v1.Secret, error) {
+	old, err := oldCredentialsSecret(ctx, kubeClient, clusterSpec)
+	if err != nil {
+		return nil, err
+	}
+
+	// upgrade case: if the credentials secret already exists, skip creation.
+	// notice for cli upgrade, we handle the secret update in a separate step - under provider.UpdateSecrets
+	// which runs before the actual cluster upgrade. So we no longer need to update the secret here again since it should
+	// already reflect the latest credentials specified in the ENVs
+	if old != nil {
+		return nil, nil
+	}
+
+	// cli create case: we create the secret from credentials parsed from envs
+	if credentials != nil {
+		return SnowCredentialsSecret(clusterSpec, credentials), nil
+	}
+
+	// controller create case: `{cluster-name}-snow-credentials` secret needs to exist or be manually created first
+	return nil, nil
 }

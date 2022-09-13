@@ -40,7 +40,7 @@ var (
 type SnowProvider struct {
 	kubeUnAuthClient KubeUnAuthClient
 	retrier          *retrier.Retrier
-	bootstrapCreds   bootstrapCreds
+	bootstrapCreds   *BootstrapCreds
 	configManager    *ConfigManager
 	skipIpCheck      bool
 }
@@ -57,6 +57,7 @@ func NewProvider(kubeUnAuthClient KubeUnAuthClient, configManager *ConfigManager
 		retrier:          retrier,
 		configManager:    configManager,
 		skipIpCheck:      skipIpCheck,
+		bootstrapCreds:   &BootstrapCreds{},
 	}
 }
 
@@ -102,8 +103,8 @@ func (p *SnowProvider) UpdateSecrets(ctx context.Context, cluster *types.Cluster
 	return nil
 }
 
-func CAPIObjects(ctx context.Context, clusterSpec *cluster.Spec, kubeClient kubernetes.Client) (controlPlaneSpec, workersSpec []byte, err error) {
-	controlPlaneObjs, err := ControlPlaneObjects(ctx, clusterSpec, kubeClient)
+func CAPIObjects(ctx context.Context, clusterSpec *cluster.Spec, credentials *BootstrapCreds, kubeClient kubernetes.Client) (controlPlaneSpec, workersSpec []byte, err error) {
+	controlPlaneObjs, err := ControlPlaneObjects(ctx, clusterSpec, credentials, kubeClient)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,7 +138,7 @@ func kubernetesToRuntimeObjects(objs []kubernetes.Object) []runtime.Object {
 
 func (p *SnowProvider) generateCAPISpec(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) (controlPlaneSpec, workersSpec []byte, err error) {
 	kubeconfigClient := p.kubeUnAuthClient.KubeconfigClient(cluster.KubeconfigFile)
-	return CAPIObjects(ctx, clusterSpec, kubeconfigClient)
+	return CAPIObjects(ctx, clusterSpec, p.bootstrapCreds, kubeconfigClient)
 }
 
 func (p *SnowProvider) GenerateCAPISpecForCreate(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) (controlPlaneSpec, workersSpec []byte, err error) {
@@ -186,8 +187,8 @@ func (p *SnowProvider) Version(clusterSpec *cluster.Spec) string {
 
 func (p *SnowProvider) EnvMap(clusterSpec *cluster.Spec) (map[string]string, error) {
 	envMap := make(map[string]string)
-	envMap[snowCredentialsKey] = p.bootstrapCreds.snowCredsB64
-	envMap[snowCertsKey] = p.bootstrapCreds.snowCertsB64
+	envMap[snowCredentialsKey] = p.bootstrapCreds.credsB64
+	envMap[snowCertsKey] = p.bootstrapCreds.certsB64
 
 	envMap["SNOW_CONTROLLER_IMAGE"] = clusterSpec.VersionsBundle.Snow.Manager.VersionedImage()
 
