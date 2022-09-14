@@ -18,10 +18,7 @@ func (p *SnowProvider) setupBootstrapCreds(clusterSpec *cluster.Spec) error {
 		return fmt.Errorf("failed to set up snow certificates: %v", err)
 	}
 
-	// if eks-a credentials secret not specified in the cluster spec file, create from ENVs
-	if clusterSpec.SnowCredentialsSecret == nil {
-		clusterSpec.SnowCredentialsSecret = EksaCredentialsSecret(clusterSpec, creds, certs)
-	}
+	clusterSpec.SnowCredentialsSecret = EksaCredentialsSecret(clusterSpec, creds, certs)
 
 	return nil
 }

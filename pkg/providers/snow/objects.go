@@ -18,7 +18,7 @@ import (
 func ControlPlaneObjects(ctx context.Context, clusterSpec *cluster.Spec, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
 	snowCluster := SnowCluster(clusterSpec)
 
-	snowCredentialsSecrets, err := credentialsSecrets(ctx, clusterSpec, kubeClient)
+	snowCredentialsSecrets, err := credentialsSecrets(ctx, clusterSpec)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func recreateKubeadmConfigTemplateNeeded(new, old *bootstrapv1.KubeadmConfigTemp
 // credentialsSecret generates the credentials secret(s) used for provisioning a snow cluster.
 // - eks-a credentials secret: user managed secret referred from snowdatacenterconfig identityRef
 // - snow credentials secret: eks-a creates, updates and deletes in eksa-system namespace. this secret is fully managed by eks-a. User shall treat it as a "read-only" object
-func credentialsSecrets(ctx context.Context, clusterSpec *cluster.Spec, kubeClient kubernetes.Client) ([]kubernetes.Object, error) {
+func credentialsSecrets(ctx context.Context, clusterSpec *cluster.Spec) ([]kubernetes.Object, error) {
 	// TODO: controller create workload cluster, should we throw an error? or print a warning?
 	if clusterSpec.SnowCredentialsSecret == nil {
 		return []kubernetes.Object{}, nil
