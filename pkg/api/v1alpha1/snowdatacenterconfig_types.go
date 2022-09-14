@@ -7,7 +7,9 @@ import (
 )
 
 const (
-	SnowIdentityKind = "Secret"
+	SnowIdentityKind    = "Secret"
+	SnowCredentialsKey  = "credentials"
+	SnowCertificatesKey = "ca-bundle"
 )
 
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.

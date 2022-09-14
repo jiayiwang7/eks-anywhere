@@ -80,7 +80,7 @@ func (s *Reconciler) ReconcileControlPlane(ctx context.Context, log logr.Logger,
 	log.Info("Applying control plane CAPI objects")
 
 	return s.Apply(ctx, func() ([]kubernetes.Object, error) {
-		return snow.ControlPlaneObjects(ctx, clusterSpec, nil, clientutil.NewKubeClient(s.client))
+		return snow.ControlPlaneObjects(ctx, clusterSpec, clientutil.NewKubeClient(s.client))
 	})
 }
 

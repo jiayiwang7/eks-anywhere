@@ -2,6 +2,9 @@ package cluster
 
 import (
 	"context"
+	"fmt"
+
+	v1 "k8s.io/api/core/v1"
 
 	anywherev1 "github.com/aws/eks-anywhere/pkg/api/v1alpha1"
 )
@@ -43,6 +46,9 @@ func snowEntry() *ConfigManagerEntry {
 				return nil
 			},
 			func(c *Config) error {
+				return validateSnowCredentialsSecret(c)
+			},
+			func(c *Config) error {
 				for _, m := range c.SnowMachineConfigs {
 					if err := m.Validate(); err != nil {
 						return err
@@ -75,6 +81,12 @@ func processSnowDatacenter(c *Config, objects ObjectLookup) {
 		datacenter := objects.GetFromRef(c.Cluster.APIVersion, c.Cluster.Spec.DatacenterRef)
 		if datacenter != nil {
 			c.SnowDatacenter = datacenter.(*anywherev1.SnowDatacenterConfig)
+			if c.SnowDatacenter.Spec.IdentityRef != nil {
+				secret := objects.GetFromRef(v1.SchemeGroupVersion.String(), *c.SnowDatacenter.Spec.IdentityRef)
+				if secret != nil {
+					c.SnowCredentialsSecret = secret.(*v1.Secret)
+				}
+			}
 		}
 	}
 }
@@ -153,6 +165,22 @@ func getSnowMachineConfigs(ctx context.Context, client Client, c *Config) error 
 		}
 
 		c.SnowMachineConfigs[machine.Name] = machine
+	}
+
+	return nil
+}
+
+func validateSnowCredentialsSecret(c *Config) error {
+	if c.SnowCredentialsSecret == nil {
+		return nil
+	}
+
+	if _, ok := c.SnowCredentialsSecret.Data[anywherev1.SnowCredentialsKey]; !ok {
+		return fmt.Errorf("invalid snow credentials secret [%s]: missing key [%s]", c.SnowCredentialsSecret, anywherev1.SnowCredentialsKey)
+	}
+
+	if _, ok := c.SnowCredentialsSecret.Data[anywherev1.SnowCertificatesKey]; !ok {
+		return fmt.Errorf("invalid snow credentials secret [%s]: missing key [%s]", c.SnowCredentialsSecret, anywherev1.SnowCertificatesKey)
 	}
 
 	return nil

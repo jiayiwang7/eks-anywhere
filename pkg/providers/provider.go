@@ -12,7 +12,7 @@ import (
 type Provider interface {
 	Name() string
 	SetupAndValidateCreateCluster(ctx context.Context, clusterSpec *cluster.Spec) error
-	SetupAndValidateDeleteCluster(ctx context.Context, cluster *types.Cluster) error
+	SetupAndValidateDeleteCluster(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) error
 	SetupAndValidateUpgradeCluster(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec, currentSpec *cluster.Spec) error
 	UpdateSecrets(ctx context.Context, cluster *types.Cluster) error
 	GenerateCAPISpecForCreate(ctx context.Context, managementCluster *types.Cluster, clusterSpec *cluster.Spec) (controlPlaneSpec, workersSpec []byte, err error)

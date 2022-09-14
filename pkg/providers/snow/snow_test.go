@@ -7,7 +7,6 @@ import (
 
 	"github.com/golang/mock/gomock"
 	. "github.com/onsi/gomega"
-	v1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -44,7 +43,6 @@ type snowTest struct {
 	provider         *snow.SnowProvider
 	cluster          *types.Cluster
 	clusterSpec      *cluster.Spec
-	credentials      *snow.BootstrapCreds
 }
 
 func newSnowTest(t *testing.T) snowTest {
@@ -56,8 +54,6 @@ func newSnowTest(t *testing.T) snowTest {
 	cluster := &types.Cluster{
 		Name: "cluster",
 	}
-	credentials := &snow.BootstrapCreds{}
-	credentials.Set("creds", "certs")
 	provider := newProvider(ctx, t, mockKubeUnAuthClient, mockaws, ctrl)
 	return snowTest{
 		WithT:            NewWithT(t),
@@ -68,7 +64,6 @@ func newSnowTest(t *testing.T) snowTest {
 		provider:         provider,
 		cluster:          cluster,
 		clusterSpec:      givenClusterSpec(),
-		credentials:      credentials,
 	}
 }
 
@@ -121,6 +116,7 @@ func givenClusterSpec() *cluster.Spec {
 			},
 		}
 		s.SnowDatacenter = givenDatacenterConfig()
+		s.SnowCredentialsSecret = wantEksaCredentialsSecret()
 		s.SnowMachineConfigs = givenMachineConfigs()
 		s.VersionsBundle = &cluster.VersionsBundle{
 			KubeDistro: &cluster.KubeDistro{
@@ -334,7 +330,7 @@ func TestSetupAndValidateUpgradeClusterNoCertsEnv(t *testing.T) {
 func TestSetupAndValidateDeleteClusterSuccess(t *testing.T) {
 	tt := newSnowTest(t)
 	setupContext(t)
-	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster)
+	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster, tt.clusterSpec)
 	tt.Expect(err).To(Succeed())
 }
 
@@ -342,7 +338,7 @@ func TestSetupAndValidateDeleteClusterNoCredsEnv(t *testing.T) {
 	tt := newSnowTest(t)
 	setupContext(t)
 	os.Unsetenv(credsFileEnvVar)
-	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster)
+	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster, tt.clusterSpec)
 	tt.Expect(err).To(MatchError(ContainSubstring("'EKSA_AWS_CREDENTIALS_FILE' is not set or is empty")))
 }
 
@@ -350,7 +346,7 @@ func TestSetupAndValidateDeleteClusterNoCertsEnv(t *testing.T) {
 	tt := newSnowTest(t)
 	setupContext(t)
 	os.Unsetenv(certsFileEnvVar)
-	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster)
+	err := tt.provider.SetupAndValidateDeleteCluster(tt.ctx, tt.cluster, tt.clusterSpec)
 	tt.Expect(err).To(MatchError(ContainSubstring("'EKSA_AWS_CA_BUNDLES_FILE' is not set or is empty")))
 }
 
@@ -358,14 +354,6 @@ func TestSetupAndValidateDeleteClusterNoCertsEnv(t *testing.T) {
 func TestGenerateCAPISpecForCreate(t *testing.T) {
 	tt := newSnowTest(t)
 	tt.kubeUnAuthClient.EXPECT().KubeconfigClient(tt.cluster.KubeconfigFile).Return(tt.kubeconfigClient)
-	tt.kubeconfigClient.EXPECT().
-		Get(
-			tt.ctx,
-			"test-snow-credentials",
-			"test-namespace",
-			&v1.Secret{},
-		).
-		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,
@@ -394,14 +382,6 @@ func TestGenerateCAPISpecForUpgrade(t *testing.T) {
 	tt := newSnowTest(t)
 	mt := wantSnowMachineTemplate()
 	tt.kubeUnAuthClient.EXPECT().KubeconfigClient(tt.cluster.KubeconfigFile).Return(tt.kubeconfigClient)
-	tt.kubeconfigClient.EXPECT().
-		Get(
-			tt.ctx,
-			"test-snow-credentials",
-			"test-namespace",
-			&v1.Secret{},
-		).
-		Return(apierrors.NewNotFound(schema.GroupResource{Group: "", Resource: ""}, ""))
 	tt.kubeconfigClient.EXPECT().
 		Get(
 			tt.ctx,

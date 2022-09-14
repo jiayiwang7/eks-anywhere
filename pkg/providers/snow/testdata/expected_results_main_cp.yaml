@@ -147,8 +147,8 @@ spec:
 ---
 apiVersion: v1
 data:
-  ca-bundle: ""
-  credentials: ""
+  ca-bundle: Y2VydHM=
+  credentials: Y3JlZHM=
 kind: Secret
 metadata:
   creationTimestamp: null
@@ -159,8 +159,8 @@ type: Opaque
 ---
 apiVersion: v1
 data:
-  ca-bundle: ""
-  credentials: ""
+  ca-bundle: Y2VydHM=
+  credentials: Y3JlZHM=
 kind: Secret
 metadata:
   creationTimestamp: null

@@ -157,8 +157,8 @@ func CredentialsSecret(name, namespace, credsB64, certsB64 string) *v1.Secret {
 			Namespace: namespace,
 		},
 		Data: map[string][]byte{
-			"credentials": []byte(credsB64),
-			"ca-bundle":   []byte(certsB64),
+			v1alpha1.SnowCredentialsKey:  []byte(credsB64),
+			v1alpha1.SnowCertificatesKey: []byte(certsB64),
 		},
 		Type: v1.SecretTypeOpaque,
 	}

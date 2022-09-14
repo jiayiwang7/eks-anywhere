@@ -308,7 +308,7 @@ func TestProviderSetupAndValidateDeleteClusterFailureOnInvalidUrl(t *testing.T) 
 	}
 
 	os.Setenv(decoder.EksacloudStackCloudConfigB64SecretKey, cloudStackCloudConfigWithInvalidUrl)
-	err := provider.SetupAndValidateDeleteCluster(ctx, cluster)
+	err := provider.SetupAndValidateDeleteCluster(ctx, cluster, nil)
 	tt.Expect(err).NotTo(BeNil())
 }
 
@@ -741,7 +741,7 @@ func TestSetupAndValidateDeleteCluster(t *testing.T) {
 	provider := givenProvider(t)
 	setupContext(t)
 
-	err := provider.SetupAndValidateDeleteCluster(ctx, nil)
+	err := provider.SetupAndValidateDeleteCluster(ctx, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected failure %v", err)
 	}

@@ -503,7 +503,7 @@ func (p *cloudstackProvider) SetupAndValidateUpgradeCluster(ctx context.Context,
 	return nil
 }
 
-func (p *cloudstackProvider) SetupAndValidateDeleteCluster(ctx context.Context, _ *types.Cluster) error {
+func (p *cloudstackProvider) SetupAndValidateDeleteCluster(ctx context.Context, _ *types.Cluster, _ *cluster.Spec) error {
 	err := p.validateEnv(ctx)
 	if err != nil {
 		return fmt.Errorf("validating environment variables: %v", err)
