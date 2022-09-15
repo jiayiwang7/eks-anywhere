@@ -2,7 +2,10 @@ package cluster
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	corev1 "k8s.io/api/core/v1"
 
 	anywherev1 "github.com/aws/eks-anywhere/pkg/api/v1alpha1"
 )
@@ -155,6 +158,25 @@ func getSnowMachineConfigs(ctx context.Context, client Client, c *Config) error 
 
 		c.SnowMachineConfigs[machine.Name] = machine
 	}
+
+	return nil
+}
+
+func getSnowIdentitySecret(ctx context.Context, client Client, c *Config) error {
+	if c.Cluster.Spec.DatacenterRef.Kind != anywherev1.SnowDatacenterKind {
+		return nil
+	}
+
+	if c.SnowDatacenter == nil {
+		return errors.New("snow datacenter has to be processed before snow identityRef credentials secret")
+	}
+
+	secret := &corev1.Secret{}
+	if err := client.Get(ctx, c.SnowDatacenter.Spec.IdentityRef.Name, c.Cluster.Namespace, secret); err != nil {
+		return err
+	}
+
+	c.SnowCredentialsSecret = secret
 
 	return nil
 }

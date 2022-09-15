@@ -34,8 +34,6 @@ const (
 )
 
 func TestReconcilerReconcileSuccess(t *testing.T) {
-	t.Skip("Needs controller changes for identityRef")
-
 	tt := newReconcilerTest(t)
 	capiCluster := capiCluster(func(c *clusterv1.Cluster) {
 		c.Name = tt.cluster.Name
@@ -103,11 +101,7 @@ func TestReconcilerReconcileControlPlane(t *testing.T) {
 	tt := newReconcilerTest(t)
 	tt.createAllObjs()
 
-	// TODO: update this logic when implementing controller identityRef
-	spec := tt.buildSpec()
-	spec.SnowCredentialsSecret = credentialsSecret()
-
-	result, err := tt.reconciler().ReconcileControlPlane(tt.ctx, test.NewNullLogger(), spec)
+	result, err := tt.reconciler().ReconcileControlPlane(tt.ctx, test.NewNullLogger(), tt.buildSpec())
 
 	tt.Expect(err).NotTo(HaveOccurred())
 	tt.Expect(tt.cluster.Status.FailureMessage).To(BeZero())
@@ -210,6 +204,14 @@ func newReconcilerTest(t testing.TB) *reconcilerTest {
 		m.Status.SpecValid = true
 	})
 
+	credentialsSecret := credentialsSecret()
+	workloadClusterDatacenter := snowDataCenter(func(d *anywherev1.SnowDatacenterConfig) {
+		d.Spec.IdentityRef = anywherev1.Ref{
+			Kind: "Secret",
+			Name: credentialsSecret.Name,
+		}
+	})
+
 	cluster := snowCluster(func(c *anywherev1.Cluster) {
 		c.Name = "workload-cluster"
 		c.Spec.ManagementCluster = anywherev1.ManagementCluster{
@@ -229,6 +231,10 @@ func newReconcilerTest(t testing.TB) *reconcilerTest {
 				Kind: "SnowMachineConfig",
 				Name: machineConfigCP.Name,
 			},
+		}
+		c.Spec.DatacenterRef = anywherev1.Ref{
+			Kind: anywherev1.SnowDatacenterKind,
+			Name: workloadClusterDatacenter.Name,
 		}
 
 		c.Spec.WorkerNodeGroupConfigurations = append(c.Spec.WorkerNodeGroupConfigurations,
@@ -256,9 +262,10 @@ func newReconcilerTest(t testing.TB) *reconcilerTest {
 			namespace(clusterNamespace),
 			namespace(constants.EksaSystemNamespace),
 			managementCluster,
-			snowDataCenter(),
+			workloadClusterDatacenter,
 			bundle,
 			eksdRelease(),
+			credentialsSecret,
 		},
 		cluster:                   cluster,
 		machineConfigControlPlane: machineConfigCP,
@@ -327,10 +334,6 @@ func snowCluster(opts ...clusterOpt) *anywherev1.Cluster {
 			Namespace: clusterNamespace,
 		},
 		Spec: anywherev1.ClusterSpec{
-			DatacenterRef: anywherev1.Ref{
-				Kind: "SnowDatacenterConfig",
-				Name: "datacenter",
-			},
 			KubernetesVersion: "1.20",
 			ClusterNetwork: anywherev1.ClusterNetwork{
 				Pods: anywherev1.Pods{
@@ -350,8 +353,10 @@ func snowCluster(opts ...clusterOpt) *anywherev1.Cluster {
 	return c
 }
 
-func snowDataCenter() *anywherev1.SnowDatacenterConfig {
-	return &anywherev1.SnowDatacenterConfig{
+type datacenterOpt func(*anywherev1.SnowDatacenterConfig)
+
+func snowDataCenter(opts ...datacenterOpt) *anywherev1.SnowDatacenterConfig {
+	d := &anywherev1.SnowDatacenterConfig{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       anywherev1.SnowDatacenterKind,
 			APIVersion: anywherev1.GroupVersion.String(),
@@ -360,13 +365,13 @@ func snowDataCenter() *anywherev1.SnowDatacenterConfig {
 			Name:      "datacenter",
 			Namespace: clusterNamespace,
 		},
-		Spec: anywherev1.SnowDatacenterConfigSpec{
-			IdentityRef: anywherev1.Ref{
-				Kind: "Secret",
-				Name: "datacenter-snow-credentials",
-			},
-		},
 	}
+
+	for _, opt := range opts {
+		opt(d)
+	}
+
+	return d
 }
 
 func createBundle() *releasev1.Bundles {
