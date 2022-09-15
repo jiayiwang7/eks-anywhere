@@ -1842,7 +1842,7 @@ func TestProviderUpdateSecrets(t *testing.T) {
 				t.Fatalf("provider.SetupAndValidateCreateCluster() err = %v, want err = nil", err)
 			}
 
-			err = provider.UpdateSecrets(ctx, cluster)
+			err = provider.UpdateSecrets(ctx, cluster, nil)
 			if test.wantErr {
 				tt.Expect(err).NotTo(BeNil())
 			} else {

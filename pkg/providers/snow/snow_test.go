@@ -2,6 +2,7 @@ package snow_test
 
 import (
 	"context"
+	"errors"
 	"os"
 	"testing"
 
@@ -186,6 +187,9 @@ func givenDatacenterConfig() *v1alpha1.SnowDatacenterConfig {
 func givenMachineConfigs() map[string]*v1alpha1.SnowMachineConfig {
 	return map[string]*v1alpha1.SnowMachineConfig{
 		"test-cp": {
+			TypeMeta: metav1.TypeMeta{
+				Kind: "SnowMachineConfig",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-cp",
 				Namespace: "test-namespace",
@@ -202,6 +206,9 @@ func givenMachineConfigs() map[string]*v1alpha1.SnowMachineConfig {
 			},
 		},
 		"test-wn": {
+			TypeMeta: metav1.TypeMeta{
+				Kind: "SnowMachineConfig",
+			},
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "test-wn",
 				Namespace: "test-namespace",
@@ -777,4 +784,26 @@ func TestChangeDiffWithChange(t *testing.T) {
 		OldVersion:    "v1.0.2",
 	}
 	g.Expect(provider.ChangeDiff(clusterSpec, newClusterSpec)).To(Equal(want))
+}
+
+func TestUpdateSecrets(t *testing.T) {
+	tt := newSnowTest(t)
+	tt.kubeUnAuthClient.EXPECT().Apply(
+		tt.ctx,
+		tt.cluster.KubeconfigFile,
+		tt.clusterSpec.SnowCredentialsSecret,
+	).Return(nil)
+
+	tt.Expect(tt.provider.UpdateSecrets(tt.ctx, tt.cluster, tt.clusterSpec)).To(Succeed())
+}
+
+func TestUpdateSecretsApplyError(t *testing.T) {
+	tt := newSnowTest(t)
+	tt.kubeUnAuthClient.EXPECT().Apply(
+		tt.ctx,
+		tt.cluster.KubeconfigFile,
+		tt.clusterSpec.SnowCredentialsSecret,
+	).Return(errors.New("error"))
+
+	tt.Expect(tt.provider.UpdateSecrets(tt.ctx, tt.cluster, tt.clusterSpec)).NotTo(Succeed())
 }

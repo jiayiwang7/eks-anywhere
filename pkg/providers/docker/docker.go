@@ -133,7 +133,7 @@ func (p *provider) SetupAndValidateUpgradeCluster(ctx context.Context, _ *types.
 	return nil
 }
 
-func (p *provider) UpdateSecrets(ctx context.Context, cluster *types.Cluster) error {
+func (p *provider) UpdateSecrets(ctx context.Context, cluster *types.Cluster, _ *cluster.Spec) error {
 	// Not implemented
 	return nil
 }

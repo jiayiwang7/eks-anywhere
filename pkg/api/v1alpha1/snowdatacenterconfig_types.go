@@ -57,8 +57,6 @@ func (s *SnowDatacenterConfig) ClearPauseAnnotation() {
 	}
 }
 
-func (s *SnowDatacenterConfig) SetDefaults() {}
-
 func (s *SnowDatacenterConfig) Validate() error {
 	if len(s.Spec.IdentityRef.Name) == 0 {
 		return fmt.Errorf("SnowDatacenterConfig IdetityRef name must not be empty")

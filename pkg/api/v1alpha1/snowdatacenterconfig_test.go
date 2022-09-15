@@ -57,50 +57,6 @@ func TestGetSnowDatacenterConfig(t *testing.T) {
 	}
 }
 
-func TestSnowDatacenterConfigSetDefaults(t *testing.T) {
-	tests := []struct {
-		name   string
-		before *SnowDatacenterConfig
-		after  *SnowDatacenterConfig
-	}{
-		{
-			name: "identity ref nil",
-			before: &SnowDatacenterConfig{
-				Spec: SnowDatacenterConfigSpec{},
-			},
-			after: &SnowDatacenterConfig{
-				Spec: SnowDatacenterConfigSpec{},
-			},
-		},
-		{
-			name: "identity ref exists",
-			before: &SnowDatacenterConfig{
-				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: Ref{
-						Name: "creds-1",
-						Kind: "Secret",
-					},
-				},
-			},
-			after: &SnowDatacenterConfig{
-				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: Ref{
-						Name: "creds-1",
-						Kind: "Secret",
-					},
-				},
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
-			tt.before.SetDefaults()
-			g.Expect(tt.before).To(Equal(tt.after))
-		})
-	}
-}
-
 func TestSnowDatacenterConfigValidate(t *testing.T) {
 	tests := []struct {
 		name    string

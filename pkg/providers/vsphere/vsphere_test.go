@@ -1644,7 +1644,7 @@ func TestProviderUpdateSecretSuccess(t *testing.T) {
 		t.Fatalf("template execute error: %v", err)
 	}
 
-	err = provider.UpdateSecrets(ctx, &cluster)
+	err = provider.UpdateSecrets(ctx, &cluster, nil)
 	if err != nil {
 		t.Fatalf("UpdateSecrets error %v", err)
 	}

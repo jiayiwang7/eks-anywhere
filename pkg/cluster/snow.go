@@ -29,12 +29,6 @@ func snowEntry() *ConfigManagerEntry {
 				return nil
 			},
 			func(c *Config) error {
-				if c.SnowDatacenter != nil {
-					c.SnowDatacenter.SetDefaults()
-				}
-				return nil
-			},
-			func(c *Config) error {
 				for _, m := range c.SnowMachineConfigs {
 					m.SetDefaults()
 				}

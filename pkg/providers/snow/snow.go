@@ -47,6 +47,7 @@ type SnowProvider struct {
 type KubeUnAuthClient interface {
 	KubeconfigClient(kubeconfig string) kubernetes.Client
 	Delete(ctx context.Context, name, namespace, kubeconfig string, obj runtime.Object) error
+	Apply(ctx context.Context, kubeconfig string, obj runtime.Object) error
 }
 
 func NewProvider(kubeUnAuthClient KubeUnAuthClient, configManager *ConfigManager, skipIpCheck bool) *SnowProvider {
@@ -91,7 +92,10 @@ func (p *SnowProvider) SetupAndValidateDeleteCluster(ctx context.Context, _ *typ
 	return nil
 }
 
-func (p *SnowProvider) UpdateSecrets(ctx context.Context, cluster *types.Cluster) error {
+func (p *SnowProvider) UpdateSecrets(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec) error {
+	if err := p.kubeUnAuthClient.Apply(ctx, cluster.KubeconfigFile, clusterSpec.SnowCredentialsSecret); err != nil {
+		return fmt.Errorf("applying eks-a snow credentials secret in cluster: %v", err)
+	}
 	return nil
 }
 

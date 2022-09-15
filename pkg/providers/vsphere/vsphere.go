@@ -538,7 +538,7 @@ func (p *vsphereProvider) validateMachineConfigsNameUniqueness(ctx context.Conte
 	return nil
 }
 
-func (p *vsphereProvider) UpdateSecrets(ctx context.Context, cluster *types.Cluster) error {
+func (p *vsphereProvider) UpdateSecrets(ctx context.Context, cluster *types.Cluster, _ *cluster.Spec) error {
 	var contents bytes.Buffer
 	err := p.createSecret(ctx, cluster, &contents)
 	if err != nil {
