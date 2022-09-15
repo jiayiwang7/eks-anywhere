@@ -64,9 +64,6 @@ func (p *SnowProvider) Name() string {
 }
 
 func (p *SnowProvider) SetupAndValidateCreateCluster(ctx context.Context, clusterSpec *cluster.Spec) error {
-	if err := p.setupBootstrapCreds(clusterSpec); err != nil {
-		return fmt.Errorf("setting up credentials: %v", err)
-	}
 	if err := p.configManager.SetDefaultsAndValidate(ctx, clusterSpec.Config); err != nil {
 		return fmt.Errorf("setting defaults and validate snow config: %v", err)
 	}
@@ -81,9 +78,6 @@ func (p *SnowProvider) SetupAndValidateCreateCluster(ctx context.Context, cluste
 }
 
 func (p *SnowProvider) SetupAndValidateUpgradeCluster(ctx context.Context, cluster *types.Cluster, clusterSpec *cluster.Spec, _ *cluster.Spec) error {
-	if err := p.setupBootstrapCreds(clusterSpec); err != nil {
-		return fmt.Errorf("setting up credentials: %v", err)
-	}
 	if err := p.configManager.SetDefaultsAndValidate(ctx, clusterSpec.Config); err != nil {
 		return fmt.Errorf("setting defaults and validate snow config: %v", err)
 	}
@@ -91,7 +85,7 @@ func (p *SnowProvider) SetupAndValidateUpgradeCluster(ctx context.Context, clust
 }
 
 func (p *SnowProvider) SetupAndValidateDeleteCluster(ctx context.Context, _ *types.Cluster, clusterSpec *cluster.Spec) error {
-	if err := p.setupBootstrapCreds(clusterSpec); err != nil {
+	if err := SetupEksaCredentialsSecret(clusterSpec.Config); err != nil {
 		return fmt.Errorf("setting up credentials: %v", err)
 	}
 	return nil

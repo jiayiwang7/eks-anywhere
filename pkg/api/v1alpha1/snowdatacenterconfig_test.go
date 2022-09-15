@@ -66,28 +66,17 @@ func TestSnowDatacenterConfigSetDefaults(t *testing.T) {
 		{
 			name: "identity ref nil",
 			before: &SnowDatacenterConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
 				Spec: SnowDatacenterConfigSpec{},
 			},
 			after: &SnowDatacenterConfig{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "test",
-				},
-				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: &Ref{
-						Name: "test-snow-credentials",
-						Kind: "Secret",
-					},
-				},
+				Spec: SnowDatacenterConfigSpec{},
 			},
 		},
 		{
 			name: "identity ref exists",
 			before: &SnowDatacenterConfig{
 				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: &Ref{
+					IdentityRef: Ref{
 						Name: "creds-1",
 						Kind: "Secret",
 					},
@@ -95,7 +84,7 @@ func TestSnowDatacenterConfigSetDefaults(t *testing.T) {
 			},
 			after: &SnowDatacenterConfig{
 				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: &Ref{
+					IdentityRef: Ref{
 						Name: "creds-1",
 						Kind: "Secret",
 					},
@@ -119,17 +108,28 @@ func TestSnowDatacenterConfigValidate(t *testing.T) {
 		wantErr string
 	}{
 		{
-			name: "identity nil",
+			name: "identity empty",
 			obj: &SnowDatacenterConfig{
 				Spec: SnowDatacenterConfigSpec{},
 			},
-			wantErr: "",
+			wantErr: "SnowDatacenterConfig IdetityRef name must not be empty",
+		},
+		{
+			name: "identity kind empty",
+			obj: &SnowDatacenterConfig{
+				Spec: SnowDatacenterConfigSpec{
+					IdentityRef: Ref{
+						Name: "test",
+					},
+				},
+			},
+			wantErr: "SnowDatacenterConfig IdetityRef kind must not be empty",
 		},
 		{
 			name: "valid identity ref",
 			obj: &SnowDatacenterConfig{
 				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: &Ref{
+					IdentityRef: Ref{
 						Name: "creds-1",
 						Kind: "Secret",
 					},
@@ -141,13 +141,13 @@ func TestSnowDatacenterConfigValidate(t *testing.T) {
 			name: "invalid identity ref kind",
 			obj: &SnowDatacenterConfig{
 				Spec: SnowDatacenterConfigSpec{
-					IdentityRef: &Ref{
+					IdentityRef: Ref{
 						Name: "creds-1",
 						Kind: "UnknowKind",
 					},
 				},
 			},
-			wantErr: "SnowDatacenterConfig IdetityRef Kind UnknowKind is invalid",
+			wantErr: "SnowDatacenterConfig IdetityRef kind UnknowKind is invalid",
 		},
 	}
 	for _, tt := range tests {

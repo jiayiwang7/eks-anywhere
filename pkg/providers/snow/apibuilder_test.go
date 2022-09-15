@@ -74,7 +74,7 @@ func wantCAPICluster() *clusterv1.Cluster {
 
 func TestCAPICluster(t *testing.T) {
 	tt := newApiBuilerTest(t)
-	snowCluster := snow.SnowCluster(tt.clusterSpec)
+	snowCluster := snow.SnowCluster(tt.clusterSpec, wantSnowCredentialsSecret())
 	controlPlaneMachineTemplate := snow.SnowMachineTemplate("snow-test-control-plane-1", tt.machineConfigs[tt.clusterSpec.Cluster.Spec.ControlPlaneConfiguration.MachineGroupRef.Name])
 	kubeadmControlPlane, err := snow.KubeadmControlPlane(tt.clusterSpec, controlPlaneMachineTemplate)
 	tt.Expect(err).To(Succeed())
@@ -487,13 +487,13 @@ func wantSnowCluster() *snowv1.AWSSnowCluster {
 
 func TestSnowCluster(t *testing.T) {
 	tt := newApiBuilerTest(t)
-	got := snow.SnowCluster(tt.clusterSpec)
+	got := snow.SnowCluster(tt.clusterSpec, wantSnowCredentialsSecret())
 	tt.Expect(got).To(Equal(wantSnowCluster()))
 }
 
 func TestSnowCredentialsSecret(t *testing.T) {
 	tt := newApiBuilerTest(t)
-	got := snow.SnowCredentialsSecret(tt.clusterSpec, "creds", "certs")
+	got := snow.CAPASCredentialsSecret(tt.clusterSpec, []byte("creds"), []byte("certs"))
 	want := wantSnowCredentialsSecret()
 	tt.Expect(got).To(Equal(want))
 }

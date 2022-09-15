@@ -221,3 +221,58 @@ func TestParseConfigMissingSnowDatacenter(t *testing.T) {
 	g.Expect(err).To(Not(HaveOccurred()))
 	g.Expect(got.DockerDatacenter).To(BeNil())
 }
+
+func TestSetSnowDatacenterIndentityRefDefault(t *testing.T) {
+	tests := []struct {
+		name   string
+		before *anywherev1.SnowDatacenterConfig
+		after  *anywherev1.SnowDatacenterConfig
+	}{
+		{
+			name: "identity ref empty",
+			before: &anywherev1.SnowDatacenterConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: anywherev1.SnowDatacenterConfigSpec{},
+			},
+			after: &anywherev1.SnowDatacenterConfig{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "test",
+				},
+				Spec: anywherev1.SnowDatacenterConfigSpec{
+					IdentityRef: anywherev1.Ref{
+						Name: "test-snow-credentials",
+						Kind: "Secret",
+					},
+				},
+			},
+		},
+		{
+			name: "identity ref exists",
+			before: &anywherev1.SnowDatacenterConfig{
+				Spec: anywherev1.SnowDatacenterConfigSpec{
+					IdentityRef: anywherev1.Ref{
+						Name: "creds-1",
+						Kind: "Secret",
+					},
+				},
+			},
+			after: &anywherev1.SnowDatacenterConfig{
+				Spec: anywherev1.SnowDatacenterConfigSpec{
+					IdentityRef: anywherev1.Ref{
+						Name: "creds-1",
+						Kind: "Secret",
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			g := NewWithT(t)
+			cluster.SetSnowDatacenterIndentityRefDefault(tt.before)
+			g.Expect(tt.before).To(Equal(tt.after))
+		})
+	}
+}

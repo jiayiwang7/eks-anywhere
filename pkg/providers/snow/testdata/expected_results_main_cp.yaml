@@ -152,18 +152,6 @@ data:
 kind: Secret
 metadata:
   creationTimestamp: null
-  name: test-snow-credentials
-  namespace: test-namespace
-type: Opaque
-
----
-apiVersion: v1
-data:
-  ca-bundle: Y2VydHM=
-  credentials: Y3JlZHM=
-kind: Secret
-metadata:
-  creationTimestamp: null
   labels:
     clusterctl.cluster.x-k8s.io/move: "true"
   name: snow-test-snow-credentials

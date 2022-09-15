@@ -17,8 +17,8 @@ const (
 // SnowDatacenterConfigSpec defines the desired state of SnowDatacenterConfig
 type SnowDatacenterConfigSpec struct { // Important: Run "make generate" to regenerate code after modifying this file
 
-	// IdentityRef is a reference to a identity to be used when reconciling this cluster
-	IdentityRef *Ref `json:"identityRef,omitempty"`
+	// IdentityRef is a reference to an identity for the Snow API to be used when reconciling this cluster
+	IdentityRef Ref `json:"identityRef,omitempty"`
 }
 
 // SnowDatacenterConfigStatus defines the observed state of SnowDatacenterConfig
@@ -57,18 +57,19 @@ func (s *SnowDatacenterConfig) ClearPauseAnnotation() {
 	}
 }
 
-func (s *SnowDatacenterConfig) SetDefaults() {
-	if s.Spec.IdentityRef == nil {
-		s.Spec.IdentityRef = &Ref{
-			Kind: SnowIdentityKind,
-			Name: fmt.Sprintf("%s-snow-credentials", s.GetName()),
-		}
-	}
-}
+func (s *SnowDatacenterConfig) SetDefaults() {}
 
 func (s *SnowDatacenterConfig) Validate() error {
-	if s.Spec.IdentityRef != nil && s.Spec.IdentityRef.Kind != SnowIdentityKind {
-		return fmt.Errorf("SnowDatacenterConfig IdetityRef Kind %s is invalid, the only supported kind is %s", s.Spec.IdentityRef.Kind, SnowIdentityKind)
+	if len(s.Spec.IdentityRef.Name) == 0 {
+		return fmt.Errorf("SnowDatacenterConfig IdetityRef name must not be empty")
+	}
+
+	if len(s.Spec.IdentityRef.Kind) == 0 {
+		return fmt.Errorf("SnowDatacenterConfig IdetityRef kind must not be empty")
+	}
+
+	if s.Spec.IdentityRef.Kind != SnowIdentityKind {
+		return fmt.Errorf("SnowDatacenterConfig IdetityRef kind %s is invalid, the only supported kind is %s", s.Spec.IdentityRef.Kind, SnowIdentityKind)
 	}
 	return nil
 }

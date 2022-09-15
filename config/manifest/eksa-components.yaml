@@ -4532,8 +4532,8 @@ spec:
             description: SnowDatacenterConfigSpec defines the desired state of SnowDatacenterConfig
             properties:
               identityRef:
-                description: IdentityRef is a reference to a identity to be used when
-                  reconciling this cluster
+                description: IdentityRef is a reference to an identity for the Snow
+                  API to be used when reconciling this cluster
                 properties:
                   kind:
                     type: string
