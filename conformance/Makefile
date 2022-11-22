@@ -20,7 +20,7 @@ k8s-conformance:
 	mkdir -p $(TARGET_DIR)
 	rm -f $(TARGET_DIR)/*
 
-sonobuoy: SONOBUOY=https://github.com/vmware-tanzu/sonobuoy/releases/download/v0.56.10/sonobuoy_0.56.10_$(SONOBUOY_OSARCH).tar.gz
+sonobuoy: SONOBUOY=https://github.com/vmware-tanzu/sonobuoy/releases/download/v0.56.11/sonobuoy_0.56.11_$(SONOBUOY_OSARCH).tar.gz
 sonobuoy:
 	wget -qO- ${SONOBUOY} |tar -xz sonobuoy
 	chmod 755 sonobuoy
@@ -28,7 +28,6 @@ sonobuoy:
 .PHONY: sonobuoy-run
 sonobuoy-run:
 	./sonobuoy run --mode=certified-conformance --wait --kube-conformance-image k8s.gcr.io/conformance:$(K8S_VERSION)
-	build/lib/get_results.sh $(TARGET_DIR)
 
 .PHONY: sonobuoy-results
 sonobuoy-results:
@@ -41,7 +40,7 @@ generate:
 
 .PHONY: git-commit
 git-commit:
-	cd k8s-conformance ; git add $(TARGET_DIR)/*
+	cd k8s-conformance ; git add v$(TARGET_RELEASE)/eks-a/*
 	cd k8s-conformance ; git commit -a -m "AWS EKS Anywhere v$(TARGET_RELEASE) conformance" --signoff
 	cd k8s-conformance ; git push
 
