@@ -8,6 +8,7 @@ const (
 	perMachineWaitTimeoutFlag   = "per-machine-wait-timeout"
 	unhealthyMachineTimeoutFlag = "unhealthy-machine-timeout"
 	nodeStartupTimeoutFlag      = "node-startup-timeout"
+	disableTimeoutFlag          = "disable-timeout"
 )
 
 type Operation int

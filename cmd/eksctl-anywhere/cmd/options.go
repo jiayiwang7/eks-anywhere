@@ -17,6 +17,7 @@ import (
 	"github.com/aws/eks-anywhere/pkg/kubeconfig"
 	"github.com/aws/eks-anywhere/pkg/logger"
 	"github.com/aws/eks-anywhere/pkg/providers/cloudstack/decoder"
+	"github.com/aws/eks-anywhere/pkg/retrier"
 	"github.com/aws/eks-anywhere/pkg/types"
 	"github.com/aws/eks-anywhere/pkg/version"
 )
@@ -29,6 +30,7 @@ type timeoutOptions struct {
 	perMachineWaitTimeout   string
 	unhealthyMachineTimeout string
 	nodeStartupTimeout      string
+	disableTimeout          bool
 }
 
 func applyTimeoutFlags(flagSet *pflag.FlagSet, t *timeoutOptions) {
@@ -46,6 +48,8 @@ func applyTimeoutFlags(flagSet *pflag.FlagSet, t *timeoutOptions) {
 
 	flagSet.StringVar(&t.nodeStartupTimeout, nodeStartupTimeoutFlag, clustermanager.DefaultNodeStartupTimeout.String(), "Override the default node startup timeout (10m) ")
 	markFlagHidden(flagSet, nodeStartupTimeoutFlag)
+
+	flagSet.BoolVar(&t.disableTimeout, disableTimeoutFlag, false, "Disable timeout for all wait operations")
 }
 
 func buildClusterManagerOpts(t timeoutOptions) ([]clustermanager.ClusterManagerOpt, error) {
@@ -74,13 +78,19 @@ func buildClusterManagerOpts(t timeoutOptions) ([]clustermanager.ClusterManagerO
 		return nil, fmt.Errorf(timeoutErrorTemplate, nodeStartupTimeoutFlag, err)
 	}
 
-	return []clustermanager.ClusterManagerOpt{
+	opts := []clustermanager.ClusterManagerOpt{
 		clustermanager.WithControlPlaneWaitTimeout(cpWaitTimeout),
 		clustermanager.WithExternalEtcdWaitTimeout(externalEtcdWaitTimeout),
 		clustermanager.WithMachineMaxWait(perMachineWaitTimeout),
 		clustermanager.WithUnhealthyMachineTimeout(unhealthyMachineTimeout),
 		clustermanager.WithNodeStartupTimeout(nodeStartupTimeout),
-	}, nil
+	}
+
+	if t.disableTimeout {
+		opts = append(opts, clustermanager.WithRetrier(retrier.NewWithNoTimeout()))
+	}
+
+	return opts, nil
 }
 
 type clusterOptions struct {
