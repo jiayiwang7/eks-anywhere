@@ -38,7 +38,7 @@ func NewEKSAInstaller(client KubernetesClient, reader manifests.FileReader) *EKS
 }
 
 // Install configures and applies eks-a components in a cluster accordingly to a spec.
-func (i *EKSAInstaller) Install(ctx context.Context, log logr.Logger, cluster *types.Cluster, spec *cluster.Spec) error {
+func (i *EKSAInstaller) Install(ctx context.Context, log logr.Logger, cluster *types.Cluster, spec *cluster.Spec, deploymentTimeout string) error {
 	generator := EKSAComponentGenerator{log: log, reader: i.reader}
 	components, err := generator.buildEKSAComponentsSpec(spec)
 	if err != nil {
@@ -57,7 +57,7 @@ func (i *EKSAInstaller) Install(ctx context.Context, log logr.Logger, cluster *t
 		}
 	}
 
-	if err := i.client.WaitForDeployment(ctx, cluster, deploymentWaitStr, "Available", constants.EksaControllerManagerDeployment, constants.EksaSystemNamespace); err != nil {
+	if err := i.client.WaitForDeployment(ctx, cluster, deploymentTimeout, "Available", constants.EksaControllerManagerDeployment, constants.EksaSystemNamespace); err != nil {
 		return fmt.Errorf("waiting for eksa-controller-manager: %v", err)
 	}
 
@@ -66,7 +66,7 @@ func (i *EKSAInstaller) Install(ctx context.Context, log logr.Logger, cluster *t
 
 // Upgrade re-installs the eksa components in a cluster if the VersionBundle defined in the
 // new spec has a different eks-a components version. Workload clusters are ignored.
-func (i *EKSAInstaller) Upgrade(ctx context.Context, log logr.Logger, cluster *types.Cluster, currentSpec, newSpec *cluster.Spec) (*types.ChangeDiff, error) {
+func (i *EKSAInstaller) Upgrade(ctx context.Context, log logr.Logger, cluster *types.Cluster, currentSpec, newSpec *cluster.Spec, deploymentTimeout string) (*types.ChangeDiff, error) {
 	log.V(1).Info("Checking for EKS-A components upgrade")
 	if !newSpec.Cluster.IsSelfManaged() {
 		log.V(1).Info("Skipping EKS-A components upgrade, not a self-managed cluster")
@@ -80,7 +80,7 @@ func (i *EKSAInstaller) Upgrade(ctx context.Context, log logr.Logger, cluster *t
 	log.V(1).Info("Starting EKS-A components upgrade")
 	oldVersion := currentSpec.VersionsBundle.Eksa.Version
 	newVersion := newSpec.VersionsBundle.Eksa.Version
-	if err := i.Install(ctx, log, cluster, newSpec); err != nil {
+	if err := i.Install(ctx, log, cluster, newSpec, deploymentTimeout); err != nil {
 		return nil, fmt.Errorf("upgrading EKS-A components from version %v to version %v: %v", oldVersion, newVersion, err)
 	}
 

@@ -17,7 +17,6 @@ import (
 	"github.com/aws/eks-anywhere/pkg/kubeconfig"
 	"github.com/aws/eks-anywhere/pkg/logger"
 	"github.com/aws/eks-anywhere/pkg/providers/cloudstack/decoder"
-	"github.com/aws/eks-anywhere/pkg/retrier"
 	"github.com/aws/eks-anywhere/pkg/types"
 	"github.com/aws/eks-anywhere/pkg/version"
 )
@@ -87,7 +86,7 @@ func buildClusterManagerOpts(t timeoutOptions) ([]clustermanager.ClusterManagerO
 	}
 
 	if t.disableTimeout {
-		opts = append(opts, clustermanager.WithRetrier(retrier.NewWithNoTimeout()))
+		opts = append(opts, clustermanager.WithNoTimeout())
 	}
 
 	return opts, nil
