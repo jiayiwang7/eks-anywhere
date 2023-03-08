@@ -25,6 +25,7 @@ import (
 	mocksdiagnostics "github.com/aws/eks-anywhere/pkg/diagnostics/interfaces/mocks"
 	"github.com/aws/eks-anywhere/pkg/executables"
 	"github.com/aws/eks-anywhere/pkg/features"
+	"github.com/aws/eks-anywhere/pkg/files"
 	mockswriter "github.com/aws/eks-anywhere/pkg/filewriter/mocks"
 	"github.com/aws/eks-anywhere/pkg/logger"
 	"github.com/aws/eks-anywhere/pkg/providers"
@@ -112,8 +113,9 @@ func TestClusterManagerInstallStorageClass(t *testing.T) {
 	eksaComponents := mocksmanager.NewMockEKSAComponents(mockCtrl)
 	provider := &storageClassProviderMock{Provider: mocksprovider.NewMockProvider(mockCtrl)}
 	diagnosticsFactory := mocksdiagnostics.NewMockDiagnosticBundleFactory(mockCtrl)
+	reader := files.NewReader()
 
-	c := clustermanager.New(client, networking, writer, diagnosticsFactory, awsIamAuth, eksaComponents)
+	c := clustermanager.New(client, networking, writer, diagnosticsFactory, awsIamAuth, reader, eksaComponents)
 
 	err := c.InstallStorageClass(ctx, cluster, provider)
 	if err != nil {
@@ -2218,7 +2220,7 @@ func TestClusterManagerInstallCustomComponentsSuccess(t *testing.T) {
 	features.ClearCache()
 	tt := newTest(t)
 
-	tt.mocks.eksaComponents.EXPECT().Install(tt.ctx, logger.Get(), tt.cluster, tt.clusterSpec, "30m0s")
+	tt.mocks.eksaComponents.EXPECT().Install(tt.ctx, logger.Get(), tt.cluster, tt.clusterSpec)
 	tt.mocks.provider.EXPECT().InstallCustomProviderComponents(tt.ctx, tt.cluster.KubeconfigFile)
 	if err := tt.clusterManager.InstallCustomComponents(tt.ctx, tt.clusterSpec, tt.cluster, tt.mocks.provider); err != nil {
 		t.Errorf("ClusterManager.InstallCustomComponents() error = %v, wantErr nil", err)
@@ -2228,7 +2230,7 @@ func TestClusterManagerInstallCustomComponentsSuccess(t *testing.T) {
 func TestClusterManagerInstallCustomComponentsErrorInstalling(t *testing.T) {
 	tt := newTest(t, clustermanager.WithRetrier(retrier.NewWithMaxRetries(2, 0)))
 
-	tt.mocks.eksaComponents.EXPECT().Install(tt.ctx, logger.Get(), tt.cluster, tt.clusterSpec, "30m0s").Return(errors.New("error from apply"))
+	tt.mocks.eksaComponents.EXPECT().Install(tt.ctx, logger.Get(), tt.cluster, tt.clusterSpec).Return(errors.New("error from apply"))
 
 	if err := tt.clusterManager.InstallCustomComponents(tt.ctx, tt.clusterSpec, tt.cluster, nil); err == nil {
 		t.Error("ClusterManager.InstallCustomComponents() error = nil, wantErr not nil")
@@ -2477,7 +2479,7 @@ func newClusterManager(t *testing.T, opts ...clustermanager.ClusterManagerOpt) (
 	}
 
 	client := clustermanager.NewRetrierClient(m.client, clustermanager.DefaultRetrier())
-	c := clustermanager.New(client, m.networking, m.writer, m.diagnosticsFactory, m.awsIamAuth, m.eksaComponents, opts...)
+	c := clustermanager.New(client, m.networking, m.writer, m.diagnosticsFactory, m.awsIamAuth, files.NewReader(), m.eksaComponents, opts...)
 
 	return c, m
 }
@@ -2572,11 +2574,4 @@ func TestClusterManagerDeleteClusterManagedCluster(t *testing.T) {
 	tt.Expect(
 		tt.clusterManager.DeleteCluster(tt.ctx, managementCluster, tt.cluster, tt.mocks.provider, tt.clusterSpec),
 	).To(Succeed())
-}
-
-func TestUpgrade(t *testing.T) {
-	tt := newTest(t, clustermanager.WithNoTimeout())
-	tt.mocks.eksaComponents.EXPECT().Upgrade(tt.ctx, logger.Get(), tt.cluster, tt.clusterSpec, tt.clusterSpec, maxTime.String()).Return(nil, nil)
-	_, err := tt.clusterManager.Upgrade(tt.ctx, tt.cluster, tt.clusterSpec, tt.clusterSpec)
-	tt.Expect(err).To(Succeed())
 }

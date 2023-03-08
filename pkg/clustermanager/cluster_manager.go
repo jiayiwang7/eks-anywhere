@@ -32,6 +32,7 @@ import (
 	"github.com/aws/eks-anywhere/pkg/filewriter"
 	"github.com/aws/eks-anywhere/pkg/kubeconfig"
 	"github.com/aws/eks-anywhere/pkg/logger"
+	"github.com/aws/eks-anywhere/pkg/manifests"
 	"github.com/aws/eks-anywhere/pkg/providers"
 	"github.com/aws/eks-anywhere/pkg/retrier"
 	"github.com/aws/eks-anywhere/pkg/templater"
@@ -76,6 +77,7 @@ type ClusterManager struct {
 	networking         Networking
 	diagnosticsFactory diagnostics.DiagnosticBundleFactory
 	awsIamAuth         AwsIamAuth
+	reader             manifests.FileReader
 
 	machineMaxWait                   time.Duration
 	machineBackoff                   time.Duration
@@ -150,8 +152,8 @@ type AwsIamAuth interface {
 
 // EKSAComponents allows to manage the eks-a components installation in a cluster.
 type EKSAComponents interface {
-	Install(ctx context.Context, log logr.Logger, cluster *types.Cluster, spec *cluster.Spec, deploymentTimeout string) error
-	Upgrade(ctx context.Context, log logr.Logger, cluster *types.Cluster, currentSpec, newSpec *cluster.Spec, deploymentTimeout string) (*types.ChangeDiff, error)
+	Install(ctx context.Context, log logr.Logger, cluster *types.Cluster, spec *cluster.Spec) error
+	Upgrade(ctx context.Context, log logr.Logger, cluster *types.Cluster, currentSpec, newSpec *cluster.Spec) (*types.ChangeDiff, error)
 }
 
 type ClusterManagerOpt func(*ClusterManager)
@@ -162,13 +164,14 @@ func DefaultRetrier() *retrier.Retrier {
 }
 
 // New constructs a new ClusterManager.
-func New(clusterClient *RetrierClient, networking Networking, writer filewriter.FileWriter, diagnosticBundleFactory diagnostics.DiagnosticBundleFactory, awsIamAuth AwsIamAuth, eksaComponents EKSAComponents, opts ...ClusterManagerOpt) *ClusterManager {
+func New(clusterClient *RetrierClient, networking Networking, writer filewriter.FileWriter, diagnosticBundleFactory diagnostics.DiagnosticBundleFactory, awsIamAuth AwsIamAuth, reader manifests.FileReader, eksaComponents EKSAComponents, opts ...ClusterManagerOpt) *ClusterManager {
 	c := &ClusterManager{
 		eksaComponents:                   eksaComponents,
 		clusterClient:                    clusterClient,
 		writer:                           writer,
 		networking:                       networking,
 		Retrier:                          DefaultRetrier(),
+		reader:                           reader,
 		diagnosticsFactory:               diagnosticBundleFactory,
 		machineMaxWait:                   DefaultMaxWaitPerMachine,
 		machineBackoff:                   machineBackoff,
@@ -257,6 +260,7 @@ func WithNoTimeout() ClusterManagerOpt {
 		c.nodeStartupTimeout = maxTime
 		c.clusterWaitTimeout = maxTime
 		c.deploymentWaitTimeout = maxTime
+		c.eksaComponents = NewEKSAInstaller(c.clusterClient, c.reader, WithDeploymentWaitTimeout(maxTime))
 	}
 }
 
@@ -1030,7 +1034,7 @@ func (c *ClusterManager) removeOldWorkerNodeGroups(ctx context.Context, workload
 }
 
 func (c *ClusterManager) InstallCustomComponents(ctx context.Context, clusterSpec *cluster.Spec, cluster *types.Cluster, provider providers.Provider) error {
-	if err := c.eksaComponents.Install(ctx, logger.Get(), cluster, clusterSpec, c.deploymentWaitTimeout.String()); err != nil {
+	if err := c.eksaComponents.Install(ctx, logger.Get(), cluster, clusterSpec); err != nil {
 		return err
 	}
 
@@ -1040,7 +1044,7 @@ func (c *ClusterManager) InstallCustomComponents(ctx context.Context, clusterSpe
 
 // Upgrade updates the eksa components in a cluster according to a Spec.
 func (c *ClusterManager) Upgrade(ctx context.Context, cluster *types.Cluster, currentSpec, newSpec *cluster.Spec) (*types.ChangeDiff, error) {
-	return c.eksaComponents.Upgrade(ctx, logger.Get(), cluster, currentSpec, newSpec, c.deploymentWaitTimeout.String())
+	return c.eksaComponents.Upgrade(ctx, logger.Get(), cluster, currentSpec, newSpec)
 }
 
 func (c *ClusterManager) CreateEKSANamespace(ctx context.Context, cluster *types.Cluster) error {

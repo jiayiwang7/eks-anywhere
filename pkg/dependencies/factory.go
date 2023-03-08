@@ -854,6 +854,7 @@ func (f *Factory) WithClusterManager(clusterConfig *v1alpha1.Cluster, opts ...cl
 			f.dependencies.Writer,
 			f.dependencies.DignosticCollectorFactory,
 			f.dependencies.AwsIamAuth,
+			f.dependencies.FileReader,
 			installer,
 			opts...,
 		)

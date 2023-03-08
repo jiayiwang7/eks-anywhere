@@ -71,9 +71,9 @@ func TestEKSAInstallerInstallSuccessWithRealManifest(t *testing.T) {
 	tt.newSpec.VersionsBundle.Eksa.Components.URI = "../../config/manifest/eksa-components.yaml"
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, gomock.AssignableToTypeOf(&appsv1.Deployment{}))
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, gomock.Any()).Times(33) // there are 33 objects in the manifest
-	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m", "Available", "eksa-controller-manager", "eksa-system")
+	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m0s", "Available", "eksa-controller-manager", "eksa-system")
 
-	tt.Expect(tt.installer.Install(tt.ctx, test.NewNullLogger(), tt.cluster, tt.newSpec, "30m")).To(Succeed())
+	tt.Expect(tt.installer.Install(tt.ctx, test.NewNullLogger(), tt.cluster, tt.newSpec)).To(Succeed())
 }
 
 func TestEKSAInstallerInstallSuccessWithTestManifest(t *testing.T) {
@@ -138,22 +138,22 @@ func TestEKSAInstallerInstallSuccessWithTestManifest(t *testing.T) {
 
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, wantDeployment)
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, wantNamespace)
-	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m", "Available", "eksa-controller-manager", "eksa-system")
+	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m0s", "Available", "eksa-controller-manager", "eksa-system")
 
-	tt.Expect(tt.installer.Install(tt.ctx, test.NewNullLogger(), tt.cluster, tt.newSpec, "30m")).To(Succeed())
+	tt.Expect(tt.installer.Install(tt.ctx, test.NewNullLogger(), tt.cluster, tt.newSpec)).To(Succeed())
 }
 
 func TestInstallerUpgradeNoSelfManaged(t *testing.T) {
 	tt := newInstallerTest(t)
 	tt.newSpec.Cluster.SetManagedBy("management-cluster")
 
-	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec, "30m")).To(BeNil())
+	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec)).To(BeNil())
 }
 
 func TestInstallerUpgradeNoChanges(t *testing.T) {
 	tt := newInstallerTest(t)
 
-	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec, "30m")).To(BeNil())
+	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec)).To(BeNil())
 }
 
 func TestInstallerUpgradeSuccess(t *testing.T) {
@@ -176,8 +176,8 @@ func TestInstallerUpgradeSuccess(t *testing.T) {
 
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, gomock.AssignableToTypeOf(&appsv1.Deployment{}))
 	tt.client.EXPECT().Apply(tt.ctx, tt.cluster.KubeconfigFile, gomock.AssignableToTypeOf(&unstructured.Unstructured{}))
-	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m", "Available", "eksa-controller-manager", "eksa-system")
-	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec, "30m")).To(Equal(wantDiff))
+	tt.client.EXPECT().WaitForDeployment(tt.ctx, tt.cluster, "30m0s", "Available", "eksa-controller-manager", "eksa-system")
+	tt.Expect(tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec)).To(Equal(wantDiff))
 }
 
 func TestInstallerUpgradeInstallError(t *testing.T) {
@@ -186,7 +186,7 @@ func TestInstallerUpgradeInstallError(t *testing.T) {
 	tt.newSpec.VersionsBundle.Eksa.Version = "v0.2.0"
 
 	// components file not set so this should return an error in failing to load manifest
-	_, err := tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec, "30m")
+	_, err := tt.installer.Upgrade(tt.ctx, tt.log, tt.cluster, tt.currentSpec, tt.newSpec)
 	tt.Expect(err).NotTo(BeNil())
 }
 
